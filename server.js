@@ -7,6 +7,8 @@ import educatorRouter from "./routes/educatorRoutes.js";
 import connectCloudinary from "./configs/cloudinary.js";
 import userRouter from "./routes/userRoutes.js";
 import courseRouter from "./routes/courseRoute.js";
+import { stripWebhooks } from "./controllers/webhooks.js";
+import { protectUser } from "./middlewares/authMiddleware.js";
 
 const app = express();
 
@@ -23,10 +25,14 @@ app.get("/", (req, res) => {
   res.send("API is Working");
 });
 
+
+
+
 // app.post("/user", express.json(), userController);
 app.use("/api/user", express.json(), userRouter)
 app.use("/api/educator", express.json(), educatorRouter);
 app.use("/api/course", express.json(), courseRouter);
+app.post("/stripe", express.raw({ type: "application/json"}),protectUser, stripWebhooks)
 
 // port
 const PORT = process.env.PORT || 5000;
