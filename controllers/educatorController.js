@@ -1,4 +1,3 @@
-import { clerkClient } from "@clerk/express";
 import Course from "../modals/Course.js";
 import {v2 as cloudinary} from 'cloudinary'
 import User from "../modals/User.js";
@@ -24,53 +23,26 @@ export const updateRoleToEducator = async (req, res) => {
 
 
 
-// export const updateRoleToEducator = async (req, res) => {
-//   try {
-//     const userId = req.auth.userId;
-//     await clerkClient.users.updateUserMetaData(userId, {
-//       publicMetaData: {
-//         role: "educator",
-//       },
-//     });
-//     req.json({
-//       success: true,
-//       message: "You can publish a course now",
-//     });
-//   } catch (error) {
-//     req.json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
 // Add New Course
 
 export const addCourse = async (req, res)=>{
   try {
     const {courseData} = req.body
     const imageFile = req.file
-
-    // const educatorID = courseData.educator;
-    // const educatorID = req.body.educator;
-        
+    const educatorID = req._id;        
 
     if(!imageFile){
       return res.status(400).json({success:false, message:'Thumbnail Not Attached'})
     }
 
     const parseCourseData = await JSON.parse(courseData);
-
-    const educatorID = parseCourseData.educator;
-
-    console.log("id is "+educatorID)
-
+    parseCourseData.educator = educatorID;
 
     if (!parseCourseData.educator) {
       return res.status(400).json({ success: false, message: "Educator ID is missing" });
     }
     
-    // parseCourseData.educator = educatorID;
+    
     const newCourse = await Course.create(parseCourseData)
     const imageUpload = await cloudinary.uploader.upload(imageFile.path)
     newCourse.courseThumbnail = imageUpload.secure_url
@@ -91,11 +63,11 @@ export const addCourse = async (req, res)=>{
 
 export const getEducatorCourses = async(req, res)=>{
   try {
-    const educator = req.body._id;
-    const course = await Course.find({educator})
+    const educator = req._id;
+    const courses = await Course.find({educator})
     res.status(200).json({
          success:true,
-         course
+         courses
     })
 
   } catch (error) {
@@ -109,13 +81,45 @@ export const getEducatorCourses = async(req, res)=>{
 
 // Get Educator Dashboard Data (Total Earning, Enrolled Students, No. of Courses)
 
-const rducatorDashboardData = async(req, res)=>{
+export const educatorDashboardData = async(req, res)=>{
   try {
 
-    const educator = req.body._id;
-    const course = Course.find({educator});
+    const educator = req._id;
+    const courses = Course.find({educator});
+    const totalCourses = courses.length
 
+    const courseIds = (await courses).map((course)=>course._id)
 
+// Calcumate total earning from purchases
+
+    const purchases = await Purchase.find({
+      courseId: {$in:courseIds},
+      status: 'completed'
+    })
+    const totalEarnings = purchases.reduce((sum, purchase)=>sum+purchase.amount, 0);
+    
+    const enrolledStudentsData = [];
+    for(const course of courses){
+      const students = await User.find({
+        _id: {$in: course.enrolledStudents}
+
+      }, 'name imageUrl')
+
+      students.forEach(student=>{
+        enrolledStudentsData.push({
+          courseTitle:course.courseTitle,
+          student 
+        })
+
+      })
+
+    }
+    res.json({
+      success:true,
+      dashboardData:{
+        totalEarnings, enrolledStudentsData, totalCourses
+      }
+    })
     
   } catch (error) {
     res.json({
@@ -125,3 +129,38 @@ const rducatorDashboardData = async(req, res)=>{
     
   }
 }
+// get enrolled student data with purchased data
+
+export const getEnrolledStudentData = (async(req, res)=>{
+  try {
+    const educator = req._id;
+    const courses = await Course.find({educator})
+    const courseIds = courses.map(couese=>course._id)
+
+    const purchases = await Purchase.find({
+      courseId:{$in: courseIds},
+      status:'completed'
+      }).populate('userId', 'name imageUrl').populate('courseId', 'courseTitle')
+
+      const enrolledStudents = purchases.map((purchase)=>({
+        studen:purchase.userId,
+        courseTitle:purchase.courseId.courseTitle,
+        purchaseDate: purchase.createdAt
+      }))
+
+      res.json({
+        success:true,
+        enrolledStudents,
+
+      })
+
+    
+  } catch (error) {
+    res.json({
+      success: false,
+      message:error.message
+
+    })
+    
+  }
+})

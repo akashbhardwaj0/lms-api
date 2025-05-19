@@ -1,250 +1,249 @@
-
 import User from "../modals/User.js";
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import Course from "../modals/Course.js";
+import { Purchase } from "../modals/Purchase.js";
+import Stripe from "stripe";
 
-export const signup = async(req, res)=>{
+//Create/Register user
 
-    const jwtKey = process.env.SECRET_KEY
-
-    console.log('body data'+req.body)
-    try {
-        const{email, password, role, name, imageUrl} = req.body;
-        if(!email || !password || !role ||!name){
-            return res.status(400).json({
-                message: "Someting is missing",
-                succeed: false
-            })
-        }
-
-        const user = await User.findOne({email});
-        if(user){
-            return res.status(400).json({
-                message: "User is already exist with this email",
-                succeed: false
-            })
-        }
-        const hashedPassword = await bcrypt.hash(password, 10)
-  await User.create({email,password: hashedPassword, role, name,imageUrl});
-
-  return res.json({
-    message: "Account Created",
-    success: true
-  })
-    
-    } catch (error) {
-        console.log(error)
-        
-    }
-}
-
-
-export const login = async (req, res)=>{
-    try {
-        const{email, password, role} = req.body;
-        if(!email || !password || !role){
-            return res.status(400).json({
-                message: "Someting is missing",
-                succeed: false
-            })
-        }
-        let user = await User.findOne({email});
-        if(!user){
-            return res.status(400).json({
-                message: "Incorrect Email and Password",
-                succeed: false
-            })
-        }
-        const isPasswordMatch = await bcrypt.compare(password, user.password);
-        if(!isPasswordMatch){
-            return res.status(400).json({
-                message: "Incorrect Email and Password",
-                succeed: false
-            })
-        }
-
-        if(role!==user.role){
-            return res.status(400).json({
-                message: "Account does not exeist with current role",
-                succeed: false
-            })
-
-        }
-
-        
-        const tokenData = {
-            userId: user._id
-            }
-
-            const token = await jwt.sign(tokenData, jwtKey, {expiresIn: '1d'})
-
-            return res.status(200).cookies('token', token, {maxAge:1*24*60*60*1000, httpOnly:true, sameSite:'strict'}).json({
-                message:'Login Successfully',
-                success: true,
-                auth: token
-            })
-        
-    } catch (error) {
-        console.log(error)
-        
-    }
-
-}
-
-export const logout = (req, res)=>{
-    try {
-        return res.status(200).cookies("token", {maxAge: 0}).json({
-            message:"Logout Successfully",
-            success: true
-        })
-        
-    } catch (error) {
-        console.log(error)
-        
-    }
-
-}
-
-export const updateProfile = async (req, res)=>{
-    try {
-        const { name, email, role, _id } = req.body;
-
-        if(!email || !role ||!name ||!_id){
-            return res.status(400).json({
-                message: "Someting is missing",
-                succeed: false
-            })
-        }
-
-        const userId = _id
-        let user = await User.findById(userId)
-
-        if(!user){
-            return response.json({
-                message: "User Not Found", 
-                success:false
-            })
-        }
-
-        // Updating Data
-
-        user.name = name,
-        user.email = email,
-        user.role = role,
-        await user.save()
-
-        return res.status(200).json({
-            message: "Profile updated successfully",
-            success: true,
-            user
-          });
-
-        
-    } catch (error) {
-        console.log(error)
-        
-    }
-}
-
-
-
-
-
-
-// API controller for function to manage user with database.
-
-export const userController = async (req, res) => {
+export const signup = async (req, res) => {
   try {
-    const { data, type } = req.body;
-
-    switch (type) {
-      case "user.created": {
-        const userData = {
-          _id: data.id,
-          email: data.email_addresses[0].email_address,
-          name: data.first_name + " " + data.last_name,
-          password: data.password,
-          role: data.role,
-          imageUrl: data.imageUrl,
-        };
-        await User.create(userData);
-        res.json({});
-        break;
-      }
-
-      case "user.updated": {
-        const userData = {
-          email: data.email_addresses[0].email_address,
-          name: data.first_name + " " + data.last_name,
-          password: data.password,
-          role: data.role,
-          imageUrl: data.imageUrl,
-        };
-        await User.findByIdAndUpdate(data.id, userData);
-        res.json({});
-        break;
-      }
-      case "user.deleted": {
-        await User.findByIdAndDelete(data.id);
-        res.json({});
-        break;
-      }
-
-      default:
-        break;
+    const { email, password, role, name, imageUrl } = req.body;
+    if (!email || !password || !role || !name) {
+      return res.status(400).json({
+        message: "Someting is missing",
+        succeed: false,
+      });
     }
+
+    const user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({
+        message: "User is already exist with this email",
+        succeed: false,
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("hashed password: " + hashedPassword);
+    const newUser = await User.create({email, password: hashedPassword, role, name, imageUrl});
+
+    // Create the JWT token
+    const jwtKey = process.env.SECRET_KEY;
+    const tokenData = { _id: newUser._id };
+    const token = jwt.sign(tokenData, jwtKey, { expiresIn: "1d" });
+
+    return res.json({
+      message: "Account Created",
+      success: true,
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        logo: newUser.imageUrl,
+      },
+      authToken: token,
+    });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    console.log(error);
   }
 };
 
-// export const clerkWebhooks = async (req, res)=>{
-//     try {
+// login user
 
-//         const whook = new Webhook (process.env.CLERK_WEBHOOK_SECRET)
+export const login = async (req, res) => {
+  try {
+    const { email, password, role } = req.body;
 
-//         await whook.verify(JSON.stringify(req.body),{
-//             "svix-id": req.headers['svix-id'],
-//             "svix-timestamp": req.headers['scix-timstamp'],
-//             "svix-signature":req.headers['svix-signature']
-//         })
-//         const {data, type} = req.body
+    if (!email || !password || !role) {
+      return res.status(400).json({
+        message: "Someting is missing",
+        succeed: false,
+      });
+    }
+    let user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({
+        message: "Incorrect Email and Password",
+        succeed: false,
+      });
+    }
 
-//         switch (type) {
-//             case 'user.created':{
-//                 const userData = {
-//                     _id: data.id,
-//                     email:data.email_addresses[0].email_address,
-//                     name: data.first_name + " " + data.last_name,
-//                     imageUrl: data.image_url,
-//                 }
-//                 await User.create(userData);
-//                 res.json({})
-//                 break
-//             }
-//             case'user.updated':{
-//                 const userData = {
-//                     email:data.email_addresses[0].email_address,
-//                     name: data.first_name + " " + data.last_name,
-//                     imageUrl: data.image_url,
-//                 }
-//                 await User.findByIdAndUpdate(data.id, userData)
-//                 res.json({})
-//                 break
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatch) {
+      return res.status(400).json({
+        message: "Incorrect Email and Password",
+        succeed: false,
+      });
+    }
 
-//             }
-//             case 'user.deleted':{
-//                 await User.findByIdAndDelete(data.id)
-//                 res.json({})
-//                 break
-//             }
+    if (role !== user.role) {
+      return res.status(400).json({
+        message: "Account does not exeist with current role",
+        succeed: false,
+      });
+    }
 
-//             default:
-//                 break;
-//         }
+    const jwtKey = process.env.SECRET_KEY;
+    const tokenData = { _id: user._id };
+    const token = jwt.sign(tokenData, jwtKey, { expiresIn: "1d" });
 
-//     } catch (error) {
-//         res.json({success: false, message: error.message})
+    return res.status(200).json({
+      message: "Login Successfully",
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        logo: user.imageUrl,
+      },
+      authToken: token,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-//     }
-// }
+// Logout
+
+export const logout = (req, res) => {
+  try {
+    return res.status(200).cookies("token", { maxAge: 0 }).json({
+      message: "Logout Successfully",
+      success: true,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// Update User
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email, role, _id } = req.body;
+
+    if (!email || !role || !name || !_id) {
+      return res.status(400).json({
+        message: "Someting is missing",
+        succeed: false,
+      });
+    }
+
+    const userId = _id;
+    let user = await User.findById(userId);
+
+    if (!user) {
+      return response.json({
+        message: "User Not Found",
+        success: false,
+      });
+    }
+
+    // Updating Data
+
+      (user.name = name),
+      (user.email = email),
+      (user.role = role),
+      await user.save();
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      success: true,
+      user: { name: user.name, email: user.email, role: user.role },
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const getUserData = async (req, res) => {
+  try {
+    const userId = req._id;
+    const user = await User.findOne(userId);
+
+    if (!user) {
+      return res.json({ success: false, message: "USER NOT FOUND" });
+    }
+    res.json({ success: true, user });
+  } catch (error) {
+    return res.json({ success: false, message: error.message });
+  }
+};
+
+// User enrolled coursess with lecture link
+
+export const userEnrolledCourses = async (req, res) => {
+  try {
+    const userId = req._id;
+    const userData = await User.findById(userId).populate("enrolledCourses");
+    res.json({ success: true, enrolledCourses: userData.enrolledCourses });
+  } catch (error) {
+    return res.json({ success: false, message: error.message });
+  }
+};
+
+
+// Purchase course
+
+export const purchaseCourse = async (req, res) => {
+  try {
+    const userId = req._id;
+    const { courseId } = req.body;
+    const { origin } = req.headers;
+    const userData = await User.findById(userId);
+    const courseData = await Course.findById(courseId);
+
+    if (!userData || !courseData) {
+      res.send({ success: false, message: "DATA NOT FOUND" });
+    }
+
+    const purchaseData = {
+      courseId: courseData._id,
+      _id: userId,
+      amount: (
+        courseData.coursePrice -
+        (courseData.discount * courseData.coursePrice) / 100
+      ).toFixed(2),
+    };
+
+    const newPurchase = await Purchase.create(purchaseData);
+
+    // stripe gate way initia;ize
+    const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY)
+    const currency = process.env.currency.toLowerCase();
+
+
+    // Creating line item for Stripe
+
+    const line_items = [{
+      price_data:{
+        currency,
+        product_data:{
+          name: courseData.courseTitle
+        },
+        unit_amount: Math.floor(newPurchase.amount)*100,
+
+      },
+      quantity: 1
+    }]
+
+    const session = await stripeInstance.checkout.sessions.create({
+      success_url: `${origin}/loading/my-enrollments`,
+      cancel_url: `${origin}/`,
+      line_items: line_items,
+      mode: 'payment',
+      metadata:{
+        purchaseId: newPurchase._id.toString()
+      }
+    })
+
+    res.json({ success: true, session_url: session.url });
+  } catch (error) {
+    res.send({ success: false, message: error.message });
+  }
+};
+

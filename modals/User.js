@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, match: [/^\S+@\S+\.\S+$/, 'Please use a valid email address.']},    
     role: { type: String, enum:['student', 'educator'], required: true },
+    password: { type: String, required: true },
     imageUrl: { type: String, required: false },
     enrolledCourses: [
       {

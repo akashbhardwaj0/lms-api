@@ -3,15 +3,14 @@ import mongoose from "mongoose";
 const PurchaseSchema = new mongoose.Schema(
   {
     courseId: {
-      type: mongoose.Schema.Types,
-      ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
       required: true,
     },
-    userId: { type: "String", ref: "User", required: true },
+    _id: { type: String, ref: "User", required: true },
     amount: { type: Number, required: true },
     status: {
-      type: "string",
+      type: String,
       enum: ["pending", "completed", "failed"],
       default: "pending",
     },
@@ -19,4 +18,4 @@ const PurchaseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export const Purchase = mongoose.modal("Purchase", PurchaseSchema)
+export const Purchase = mongoose.model("Purchase", PurchaseSchema);
