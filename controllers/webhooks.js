@@ -14,8 +14,9 @@ export const stripWebhooks = async (request, response) => {
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
-  } catch (error) {
-    response.send({ success: false, message: error.message });
+    
+  }   catch (err) {
+    response.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // Handle the event
@@ -27,8 +28,8 @@ export const stripWebhooks = async (request, response) => {
       const session = await stripeInstance.checkout.sessions.list({
         payment_intent: paymentIntentId,
       });
-      const { purchaseId } = session.data[0].metadata;
 
+      const { purchaseId } = session.data[0].metadata;
       const purchaseData = await Purchase.findById(purchaseId);
       const userData = await User.findById(purchaseData.userId);
       const courseData = await Course.findById(
@@ -66,7 +67,6 @@ export const stripWebhooks = async (request, response) => {
     default:
       console.log(`Unhandled event type ${event.type}`);
   }
-
-  // Return a response to acknowledge receipt of the event
+// Return a response to acknowledge receipt of the event
   response.json({ received: true });
 };
