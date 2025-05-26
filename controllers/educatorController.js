@@ -1,13 +1,14 @@
 import Course from "../modals/Course.js";
 import {v2 as cloudinary} from 'cloudinary'
 import User from "../modals/User.js";
+import { Purchase } from "../modals/Purchase.js";
 
 
 // Update role to educator
 
 export const updateRoleToEducator = async (req, res) => {
   try {
-    const userId = req.body._id;
+    const userId = req._id;
     await User.findByIdAndUpdate(userId, { role: "educator" });
     res.json({
       success: true,
@@ -85,10 +86,10 @@ export const educatorDashboardData = async(req, res)=>{
   try {
 
     const educator = req._id;
-    const courses = Course.find({educator});
+    const courses = await Course.find({educator});
     const totalCourses = courses.length
+    const courseIds = courses.map((course)=>course._id)
 
-    const courseIds = (await courses).map((course)=>course._id)
 
 // Calcumate total earning from purchases
 
@@ -96,24 +97,29 @@ export const educatorDashboardData = async(req, res)=>{
       courseId: {$in:courseIds},
       status: 'completed'
     })
+
     const totalEarnings = purchases.reduce((sum, purchase)=>sum+purchase.amount, 0);
     
+
     const enrolledStudentsData = [];
+    
     for(const course of courses){
       const students = await User.find({
         _id: {$in: course.enrolledStudents}
-
       }, 'name imageUrl')
 
       students.forEach(student=>{
         enrolledStudentsData.push({
           courseTitle:course.courseTitle,
-          student 
+          student
         })
 
       })
 
     }
+
+
+
     res.json({
       success:true,
       dashboardData:{
@@ -135,7 +141,7 @@ export const getEnrolledStudentData = (async(req, res)=>{
   try {
     const educator = req._id;
     const courses = await Course.find({educator})
-    const courseIds = courses.map(couese=>course._id)
+    const courseIds = courses.map((course)=>course._id)
 
     const purchases = await Purchase.find({
       courseId:{$in: courseIds},
@@ -143,7 +149,7 @@ export const getEnrolledStudentData = (async(req, res)=>{
       }).populate('userId', 'name imageUrl').populate('courseId', 'courseTitle')
 
       const enrolledStudents = purchases.map((purchase)=>({
-        studen:purchase.userId,
+        student:purchase.userId,
         courseTitle:purchase.courseId.courseTitle,
         purchaseDate: purchase.createdAt
       }))

@@ -30,13 +30,12 @@ export const stripWebhooks = async (request, response) => {
       });
 
       const { purchaseId } = session.data[0].metadata;
+
       const purchaseData = await Purchase.findById(purchaseId);
       const userData = await User.findById(purchaseData.userId);
-      const courseData = await Course.findById(
-        purchaseData.courseId.toString()
-      );
+      const courseData = await Course.findById(purchaseData.courseId.toString());
 
-      courseData.enrolledStudents.push(userData);
+      courseData.enrolledStudents.push(userData._id);
       await courseData.save();
 
       userData.enrolledCourses.push(courseData._id);
@@ -48,13 +47,14 @@ export const stripWebhooks = async (request, response) => {
       break;
     }
 
-    case "payment_method.attached": {
+    case "payment_method.payment_failed": {
       const paymentIntent = event.data.object;
       const paymentIntentId = paymentIntent.id;
 
       const session = await stripeInstance.checkout.sessions.list({
         payment_intent: paymentIntentId,
       });
+
       const { purchaseId } = session.data[0].metadata;
       const purchaseData = await Purchase.findById(purchaseId);
       purchaseData.status = "failed";

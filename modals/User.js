@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, match: [/^\S+@\S+\.\S+$/, 'Please use a valid email address.']},    
     role: { type: String, enum:['student', 'educator'], required: true },
     password: { type: String, required: true },
-    imageUrl: { type: String, required: false },
+    imageUrl: { type: String, required: true },
     enrolledCourses: [
       {
         type: mongoose.Schema.Types.ObjectId,

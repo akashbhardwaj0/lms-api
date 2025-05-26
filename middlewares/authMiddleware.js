@@ -9,7 +9,6 @@ const protectEducator = async (req, res, next) => {
     const authToken = req.headers.authorization
     const decoded = jwt.verify(authToken, process.env.SECRET_KEY);
     req._id = decoded._id;
-
         
     const user = await User.findById(req._id);
     if (!user || user.role !== 'educator') {

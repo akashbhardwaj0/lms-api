@@ -164,7 +164,7 @@ export const updateProfile = async (req, res) => {
 export const getUserData = async (req, res) => {
   try {
     const userId = req._id;
-    const user = await User.findOne(userId);
+    const user = await User.findById(userId).select('-password -__v -createdAt -updatedAt');
 
     if (!user) {
       return res.json({ success: false, message: "USER NOT FOUND" });
@@ -199,14 +199,17 @@ export const purchaseCourse = async (req, res) => {
     const courseData = await Course.findById(courseId);
 
     if (!userData || !courseData) {
-      res.send({ success: false, message: "DATA NOT FOUND" });
-    }
+      console.log("error missing data")
+      return res.send({ success: false, message: "DATA NOT FOUND" });
+     }
+
 
     const purchaseData = {
       courseId: courseData._id,
       userId: userId,
       amount: (courseData.coursePrice -(courseData.discount * courseData.coursePrice) / 100).toFixed(2),
     };
+
 
     const newPurchase = await Purchase.create(purchaseData);
 
@@ -237,7 +240,7 @@ export const purchaseCourse = async (req, res) => {
         purchaseId: newPurchase._id.toString(),
       },
     })
-
+    
     res.json({ success: true, session_url: session.url});
   } catch (error) {
     res.send({ success: false, message: error.message });
