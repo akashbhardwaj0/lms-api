@@ -26,39 +26,85 @@ export const updateRoleToEducator = async (req, res) => {
 
 // Add New Course
 
-export const addCourse = async (req, res)=>{
+
+export const addCourse = async (req, res) => {
   try {
-    const {courseData} = req.body
-    const imageFile = req.file
-    const educatorID = req._id;        
+    const { courseData } = req.body;
+    const imageFile = req.file;
+    const educatorID = req._id;
 
-    if(!imageFile){
-      return res.status(400).json({success:false, message:'Thumbnail Not Attached'})
+    if (!imageFile) {
+      return res.status(400).json({ success: false, message: 'Thumbnail not attached' });
     }
 
-    const parseCourseData = await JSON.parse(courseData);
-    parseCourseData.educator = educatorID;
+    // Parse and enrich course data
+    const parsedCourseData = JSON.parse(courseData);
+    parsedCourseData.educator = educatorID;
 
-    if (!parseCourseData.educator) {
-      return res.status(400).json({ success: false, message: "Educator ID is missing" });
-    }
-    
-    
-    const newCourse = await Course.create(parseCourseData)
-    const imageUpload = await cloudinary.uploader.upload(imageFile.path)
-    newCourse.courseThumbnail = imageUpload.secure_url
-    await newCourse.save()
-    
+    // Upload image buffer to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'courseThumbnails' },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(imageFile.buffer); // stream the buffer from multer.memoryStorage
+    });
+
+    parsedCourseData.courseThumbnail = uploadResult.secure_url;
+
+    // Create new course
+    await Course.create(parsedCourseData);
+
     res.status(200).json({
-      success:true, message:"Course Added"
-    })
-    
+      success: true,
+      message: "Course added successfully",
+    });
   } catch (error) {
-    res.status(500).json({error, success:false, message:error.message})
-    
+    console.error("Course creation error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
+};
 
-}
+
+// export const addCourse = async (req, res)=>{
+//   try {
+//     const {courseData} = req.body
+//     const imageFile = req.file
+//     const educatorID = req._id;        
+
+//     if(!imageFile){
+//       return res.status(400).json({success:false, message:'Thumbnail Not Attached'})
+//     }
+
+//     const parseCourseData = await JSON.parse(courseData);
+//     parseCourseData.educator = educatorID;
+
+//     if (!parseCourseData.educator) {
+//       return res.status(400).json({ success: false, message: "Educator ID is missing" });
+//     }
+    
+    
+//     const newCourse = await Course.create(parseCourseData)
+//     const imageUpload = await cloudinary.uploader.upload(imageFile.path)
+//     newCourse.courseThumbnail = imageUpload.secure_url
+//     await newCourse.save()
+    
+//     res.status(200).json({
+//       success:true, message:"Course Added"
+//     })
+    
+//   } catch (error) {
+//     res.status(500).json({error, success:false, message:error.message})
+    
+//   }
+
+// }
 
 // Get educator courses
 

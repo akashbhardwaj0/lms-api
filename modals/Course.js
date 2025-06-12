@@ -30,7 +30,8 @@ const courseSchema = new mongoose.Schema({
         {userId:{type:String}, ratings: {type:Number, min:1, max: 5}}
     ],
     educator:{type: String, ref:"User", required:true},
-    enrolledStudents:[ {type:mongoose.Schema.Types.ObjectId, ref: "User"}]
+    enrolledStudents:[ {type:mongoose
+        .Schema.Types.ObjectId, ref: "User"}]
 }, {timestamps:true, minimize: false})
 
 const Course = mongoose.model("Course", courseSchema)

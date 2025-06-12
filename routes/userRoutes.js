@@ -1,10 +1,12 @@
 import express from "express";
 import { addUserRating, getUserCourseProgress, getUserData, login, purchaseCourse, signup, updateUserCourseProgress, userEnrolledCourses } from "../controllers/userController.js";
 import { protectUser } from "../middlewares/authMiddleware.js";
+import upload from "../configs/multer.js";
 
 const userRouter = express.Router()
 
-userRouter.post("/register", signup)
+userRouter.post("/register", upload.single("profilePhoto"), signup);
+
 userRouter.post("/login", login)
 
 userRouter.get("/data",protectUser, getUserData)

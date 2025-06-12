@@ -1,7 +1,9 @@
+// configs/multer.js
 import multer from "multer";
 
-const storage = multer.diskStorage({})
+// Cloudinary prefers in-memory upload
+const storage = multer.memoryStorage();
 
-const upload = multer({storage})
+const upload = multer({ storage });
 
-export default upload
+export default upload;

@@ -5,32 +5,69 @@ import Course from "../modals/Course.js";
 import { Purchase } from "../modals/Purchase.js";
 import Stripe from "stripe";
 import { CourseProgress } from "../modals/CourseProgress.js";
+import connectCloudinary from "../configs/cloudinary.js";
 
 //Create/Register user
+const cloudinary = connectCloudinary();
+
+const streamUpload = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "profilePhotos" },
+      (error, result) => {
+        if (result) resolve(result);
+        else reject(error);
+      }
+    );
+    stream.end(fileBuffer);
+  });
+};
 
 export const signup = async (req, res) => {
   try {
-    const { email, password, role, name, imageUrl } = req.body;
+    const { email, password, role, name } = req.body;
+
+    // Check required fields except profilePhoto (file)
     if (!email || !password || !role || !name) {
       return res.status(400).json({
-        message: "Someting is missing",
-        succeed: false,
+        message: "Something is missing",
+        success: false,
       });
     }
 
-    const user = await User.findOne({ email });
-    if (user) {
+    // Check if user already exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
       return res.status(400).json({
-        message: "User is already exist with this email",
-        succeed: false,
+        message: "User already exists with this email",
+        success: false,
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log("hashed password: " + hashedPassword);
-    const newUser = await User.create({email, password: hashedPassword, role, name, imageUrl});
+    // Check if file is attached
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Profile photo is required",
+        success: false,
+      });
+    }
 
-    // Create the JWT token
+    // Upload profile photo to Cloudinary
+    const result = await streamUpload(req.file.buffer);
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user with imageUrl from Cloudinary upload
+    const newUser = await User.create({
+      email,
+      password: hashedPassword,
+      role,
+      name,
+      imageUrl: result.secure_url,
+    });
+
+    // Generate JWT token
     const jwtKey = process.env.SECRET_KEY;
     const tokenData = { _id: newUser._id };
     const token = jwt.sign(tokenData, jwtKey, { expiresIn: "1d" });
@@ -43,14 +80,61 @@ export const signup = async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        logo: newUser.imageUrl,
+        imageUrl: newUser.imageUrl,
       },
       authToken: token,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Signup error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+
+
+// export const signup = async (req, res) => {
+//   try {
+//     const { email, password, role, name, imageUrl } = req.body;
+//     if (!email || !password || !role || !name) {
+//       return res.status(400).json({
+//         message: "Someting is missing",
+//         succeed: false,
+//       });
+//     }
+
+//     const user = await User.findOne({ email });
+//     if (user) {
+//       return res.status(400).json({
+//         message: "User is already exist with this email",
+//         succeed: false,
+//       });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     console.log("hashed password: " + hashedPassword);
+//     const newUser = await User.create({email, password: hashedPassword, role, name, imageUrl});
+
+//     // Create the JWT token
+//     const jwtKey = process.env.SECRET_KEY;
+//     const tokenData = { _id: newUser._id };
+//     const token = jwt.sign(tokenData, jwtKey, { expiresIn: "1d" });
+
+//     return res.json({
+//       message: "Account Created",
+//       success: true,
+//       user: {
+//         _id: newUser._id,
+//         name: newUser.name,
+//         email: newUser.email,
+//         role: newUser.role,
+//         logo: newUser.imageUrl,
+//       },
+//       authToken: token,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//   }
+// };
 
 // login user
 
